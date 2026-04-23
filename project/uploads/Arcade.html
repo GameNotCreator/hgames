@@ -1,0 +1,2015 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ARCADE//HUB</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700;800&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/mqtt@4.3.7/dist/mqtt.min.js"></script>
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<style>
+:root {
+  --bg: #07090d;
+  --surface: #101319;
+  --surface2: #161a24;
+  --border: #1f2430;
+  --border2: #1e2330;
+  --amber: #ffb627;
+  --amber-dim: rgba(255,182,39,0.12);
+  --amber-glow: rgba(255,182,39,0.5);
+  --cyan: #00e5ff;
+  --cyan-dim: rgba(0,229,255,0.15);
+  --red: #ff3860;
+  --green: #2ecc71;
+  --blue: #4a9eff;
+  --purple: #9b59b6;
+  --text: #e8eaf0;
+  --text-dim: #4a5068;
+  --text-mid: #8890a8;
+  --cell-hidden: #1a1f2a;
+  --cell-hover: #252d40;
+  --cell-revealed: #0b0e13;
+  --display-bg: #05070b;
+  --chat-width: 270px;
+  --sidebar-width: 210px;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; overflow: hidden; }
+body {
+  background: var(--bg);
+  font-family: 'JetBrains Mono', monospace;
+  color: var(--text);
+  display: flex;
+  flex-direction: column;
+}
+body::before {
+  content: '';
+  position: fixed; inset: 0;
+  background-image:
+    linear-gradient(rgba(255,182,39,0.022) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,182,39,0.022) 1px, transparent 1px);
+  background-size: 40px 40px;
+  pointer-events: none;
+  z-index: 0;
+}
+body::after {
+  content: '';
+  position: fixed; inset: 0;
+  background:
+    radial-gradient(ellipse at 20% 0%, rgba(255,182,39,0.08), transparent 50%),
+    radial-gradient(ellipse at 80% 100%, rgba(0,229,255,0.05), transparent 50%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* ── TOPBAR ── */
+.topbar {
+  height: 48px;
+  background: linear-gradient(180deg, var(--display-bg) 0%, rgba(7,9,13,0.95) 100%);
+  border-bottom: 1px solid rgba(255,182,39,0.2);
+  box-shadow: 0 1px 0 rgba(255,182,39,0.05), 0 4px 20px rgba(0,0,0,0.4);
+  display: flex;
+  align-items: center;
+  padding: 0 16px;
+  gap: 12px;
+  flex-shrink: 0;
+  position: relative;
+  z-index: 80;
+}
+.topbar::after {
+  content: ''; position: absolute; bottom: -1px; left: 0; right: 0; height: 1px;
+  background: linear-gradient(90deg, transparent, var(--amber-glow), transparent);
+  opacity: 0.4;
+}
+.topbar-logo {
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.28em;
+  color: var(--text);
+  text-transform: uppercase;
+  display: flex;
+  align-items: center;
+  text-shadow: 0 0 12px rgba(240,165,0,0.25);
+}
+.topbar-sep { flex: 1; }
+.profile-pill {
+  display: flex; align-items: center; gap: 8px;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  padding: 4px 12px 4px 6px;
+  cursor: pointer;
+  transition: border-color 0.15s;
+  font-size: 11px;
+}
+.profile-pill:hover { border-color: var(--amber); }
+.profile-avatar {
+  width: 26px; height: 26px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--amber) 0%, #ff8c00 100%);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 12px; font-weight: 800; color: #000;
+  flex-shrink: 0;
+  box-shadow: 0 0 10px rgba(255,182,39,0.4), inset 0 1px 0 rgba(255,255,255,0.3);
+}
+.profile-name { color: var(--text); font-weight: 700; }
+.profile-pts { color: var(--amber); font-size: 10px; }
+
+/* ── LAYOUT ── */
+.layout {
+  flex: 1; display: flex; overflow: hidden; position: relative; z-index: 1;
+}
+
+/* ── SIDEBAR ── */
+.sidebar {
+  width: var(--sidebar-width);
+  background: var(--surface);
+  border-right: 1px solid var(--border);
+  display: flex; flex-direction: column;
+  overflow-y: auto; flex-shrink: 0;
+}
+.sidebar-section { padding: 16px 14px 8px; }
+.sidebar-title {
+  font-size: 9px; font-weight: 700;
+  letter-spacing: 0.25em; text-transform: uppercase;
+  color: var(--text-dim); margin-bottom: 8px;
+}
+.nav-item {
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px 10px; border-radius: 6px;
+  cursor: pointer; font-size: 12px; font-weight: 500;
+  color: var(--text-mid);
+  transition: all 0.12s;
+  border: 1px solid transparent;
+  margin-bottom: 2px;
+  user-select: none;
+}
+.nav-item:hover { background: var(--surface2); color: var(--text); }
+.nav-item.active {
+  background: var(--amber-dim);
+  border-color: rgba(255,182,39,0.3);
+  color: var(--amber);
+  box-shadow: 0 0 14px rgba(255,182,39,0.12), inset 0 0 8px rgba(255,182,39,0.08);
+}
+.nav-icon { font-size: 15px; width: 20px; text-align: center; }
+.nav-badge {
+  margin-left: auto; font-size: 9px;
+  background: var(--border); color: var(--text-dim);
+  border-radius: 10px; padding: 1px 6px;
+}
+.nav-item.active .nav-badge { background: var(--amber); color: #000; }
+
+/* Profile card */
+.profile-card {
+  margin: 8px 14px 14px;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 14px;
+}
+.pc-rank {
+  font-size: 9px; letter-spacing: 0.2em; text-transform: uppercase;
+  color: var(--amber); margin-bottom: 4px;
+}
+.pc-name { font-size: 14px; font-weight: 800; margin-bottom: 10px; }
+.pc-stat { display: flex; justify-content: space-between; font-size: 10px; color: var(--text-dim); margin-bottom: 4px; }
+.pc-stat span { color: var(--text); font-weight: 700; }
+.pc-bar-wrap { background: var(--border); border-radius: 3px; height: 3px; margin-top: 10px; overflow: hidden; }
+.pc-bar { background: var(--amber); height: 100%; border-radius: 3px; transition: width 0.4s ease; }
+.pc-edit-btn {
+  width: 100%; margin-top: 10px;
+  background: transparent; border: 1px solid var(--border);
+  border-radius: 4px; color: var(--text-dim);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px; letter-spacing: 0.15em; text-transform: uppercase;
+  padding: 5px; cursor: pointer; transition: all 0.12s;
+}
+.pc-edit-btn:hover { border-color: var(--amber); color: var(--amber); }
+
+/* ── CENTER ── */
+.game-area {
+  flex: 1; overflow: auto;
+  min-width: 0;
+  display: flex; align-items: flex-start; justify-content: center;
+  padding: 24px;
+}
+
+/* ── CHAT ── */
+.chat-panel {
+  width: var(--chat-width);
+  background: linear-gradient(180deg, var(--surface) 0%, var(--bg) 100%);
+  border-left: 1px solid var(--border);
+  display: flex; flex-direction: column;
+  flex-shrink: 0;
+  box-shadow: -8px 0 30px rgba(0,0,0,0.6), inset 1px 0 0 rgba(255,182,39,0.05);
+}
+.chat-header {
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; gap: 8px;
+  background: var(--display-bg);
+}
+.chat-title { font-size: 11px; font-weight: 800; letter-spacing: 0.22em; text-transform: uppercase; color: var(--amber); text-shadow: 0 0 8px rgba(255,182,39,0.3); }
+.chat-dot {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: var(--text-dim); margin-left: auto;
+  transition: background 0.3s;
+}
+.chat-dot.on { background: var(--green); box-shadow: 0 0 6px var(--green); }
+.chat-messages {
+  flex: 1; overflow-y: auto;
+  padding: 10px;
+  display: flex; flex-direction: column; gap: 8px;
+}
+.chat-messages::-webkit-scrollbar { width: 4px; }
+.chat-messages::-webkit-scrollbar-track { background: transparent; }
+.chat-messages::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+.chat-msg { font-size: 12px; line-height: 1.55; }
+.chat-msg-user { color: var(--amber); font-weight: 700; font-size: 11px; text-shadow: 0 0 6px rgba(255,182,39,0.25); }
+.chat-msg-text { color: var(--text); }
+.chat-msg-time { color: var(--text-mid); font-size: 10px; margin-left: 6px; }
+.chat-msg.system { color: var(--text-mid); font-style: italic; font-size: 10px; text-align: center; opacity: 0.75; }
+.chat-input-wrap {
+  padding: 10px;
+  border-top: 1px solid var(--border);
+  display: flex; gap: 6px;
+}
+.chat-input {
+  flex: 1; background: var(--cell-hidden);
+  border: 1px solid var(--border);
+  border-radius: 5px; padding: 7px 10px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px; color: var(--text);
+  outline: none; transition: border-color 0.15s;
+}
+.chat-input:focus { border-color: var(--amber); }
+.chat-send {
+  background: var(--amber); border: none;
+  border-radius: 5px; padding: 7px 12px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 13px; font-weight: 700;
+  color: #000; cursor: pointer;
+  box-shadow: 0 0 12px rgba(255,182,39,0.35);
+  transition: all 0.15s;
+}
+.chat-send:hover { opacity: 0.85; transform: translateY(-1px); }
+.chat-send:disabled { opacity: 0.35; cursor: not-allowed; box-shadow: none; }
+.chat-login-prompt {
+  flex: 1; display: flex; align-items: center; justify-content: center;
+  font-size: 10px; color: var(--text-dim); text-align: center;
+  padding: 20px; line-height: 1.6;
+}
+
+/* ── PROFILE MODAL ── */
+.modal-overlay {
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,0.8);
+  backdrop-filter: blur(6px);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 1000;
+  animation: fadeIn 0.2s ease;
+}
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+.modal {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 32px;
+  width: 360px;
+  box-shadow: 0 24px 60px rgba(0,0,0,0.7), 0 0 0 1px rgba(255,255,255,0.04);
+  animation: slideUp 0.25s ease;
+}
+@keyframes slideUp { from { transform: translateY(16px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+.modal-logo { font-size: 11px; font-weight: 800; letter-spacing: 0.3em; color: var(--amber); text-transform: uppercase; margin-bottom: 20px; }
+.modal-title { font-size: 20px; font-weight: 800; margin-bottom: 6px; }
+.modal-sub { font-size: 11px; color: var(--text-dim); margin-bottom: 24px; line-height: 1.6; }
+.modal-label { font-size: 10px; letter-spacing: 0.15em; text-transform: uppercase; color: var(--text-dim); margin-bottom: 6px; }
+.modal-input {
+  width: 100%; background: var(--cell-hidden);
+  border: 1px solid var(--border); border-radius: 6px;
+  padding: 10px 14px; font-family: 'JetBrains Mono', monospace;
+  font-size: 14px; color: var(--text); outline: none;
+  transition: border-color 0.15s; margin-bottom: 20px;
+}
+.modal-input:focus { border-color: var(--amber); }
+.modal-btn {
+  width: 100%; background: var(--amber); border: none;
+  border-radius: 6px; padding: 12px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px; font-weight: 800;
+  letter-spacing: 0.15em; text-transform: uppercase;
+  color: #000; cursor: pointer;
+  transition: all 0.15s;
+}
+.modal-btn:hover { opacity: 0.85; transform: translateY(-1px); }
+.modal-btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+
+/* ── MINESWEEPER ── */
+.ms-panel {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: 0 0 0 1px rgba(255,255,255,0.03), 0 20px 50px rgba(0,0,0,0.5);
+}
+.ms-hud {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border);
+  background: var(--display-bg);
+}
+.lcd { display: flex; gap: 2px; align-items: center; }
+.lcd-icon { font-size: 13px; margin-right: 5px; opacity: 0.5; }
+.lcd-digit {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 26px; line-height: 1;
+  color: var(--amber);
+  text-shadow: 0 0 10px var(--amber);
+  min-width: 20px; text-align: center;
+}
+.reset-btn {
+  width: 38px; height: 38px;
+  background: var(--cell-hidden);
+  border: 1px solid #2e3548;
+  border-radius: 6px; font-size: 18px;
+  cursor: pointer; display: flex;
+  align-items: center; justify-content: center;
+  transition: all 0.1s;
+}
+.reset-btn:hover { background: var(--cell-hover); transform: scale(1.05); }
+.ms-grid-wrap { padding: 12px; user-select: none; }
+.ms-grid { display: grid; gap: 2px; }
+.ms-diff-bar {
+  display: flex; gap: 2px;
+  background: var(--display-bg);
+  border-bottom: 1px solid var(--border);
+  padding: 6px 10px;
+}
+.ms-diff-btn {
+  flex: 1; padding: 4px;
+  background: transparent; border: 1px solid transparent;
+  border-radius: 4px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px; font-weight: 700;
+  letter-spacing: 0.1em; text-transform: uppercase;
+  color: var(--text-dim); cursor: pointer;
+  transition: all 0.12s;
+}
+.ms-diff-btn:hover { color: var(--text); background: var(--border); }
+.ms-diff-btn.active { background: var(--amber); color: #000; }
+.cell {
+  display: flex; align-items: center; justify-content: center;
+  font-size: 11px; font-weight: 800;
+  cursor: pointer; border-radius: 3px;
+  transition: background 0.07s, transform 0.07s;
+  border: 1px solid transparent;
+}
+.cell.hidden {
+  background: var(--cell-hidden);
+  border-color: #2e3548;
+  box-shadow: inset 1px 1px 0 rgba(255,255,255,0.05), inset -1px -1px 0 rgba(0,0,0,0.3);
+}
+.cell.hidden:hover { background: var(--cell-hover); }
+.cell.hidden:active { transform: scale(0.9); }
+.cell.revealed { background: var(--cell-revealed); border-color: #0a0c10; cursor: default; }
+.cell.flagged { background: var(--cell-hidden); border-color: #2e3548; }
+.cell.mine-hit { background: #3d1010 !important; border-color: var(--red) !important; }
+.cell.mine-shown { background: #1a1010; border-color: #2a1515; }
+.n1{color:#4a9eff} .n2{color:#2ecc71} .n3{color:#e03c3c} .n4{color:#9b59b6}
+.n5{color:#e67e22} .n6{color:#1abc9c} .n7{color:#e8eaf0} .n8{color:#4a5068}
+@keyframes pop-in {
+  0%{transform:scale(0.7);opacity:0} 60%{transform:scale(1.05)} 100%{transform:scale(1);opacity:1}
+}
+.just-revealed { animation: pop-in 0.16s ease forwards; }
+.ms-stats {
+  display: flex; gap: 16px;
+  padding: 7px 16px;
+  border-top: 1px solid var(--border);
+  background: var(--display-bg);
+}
+.ms-stat { font-size: 10px; color: var(--text-dim); }
+.ms-stat span { color: var(--text); }
+.ms-overlay {
+  position: absolute; inset: 0;
+  background: rgba(13,15,20,0.92);
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center; gap: 14px;
+  z-index: 10; border-radius: 10px;
+  backdrop-filter: blur(4px);
+  animation: fadeIn 0.3s ease;
+}
+.ms-ov-title {
+  font-size: 26px; font-weight: 800;
+  letter-spacing: 0.1em; text-transform: uppercase;
+}
+.ms-ov-title.win { color: var(--amber); text-shadow: 0 0 20px var(--amber); }
+.ms-ov-title.lose { color: var(--red); text-shadow: 0 0 20px var(--red); }
+.ms-ov-sub { font-size: 11px; color: var(--text-dim); letter-spacing: 0.15em; }
+.ms-ov-pts { font-size: 14px; color: var(--green); font-weight: 800; }
+.ms-ov-btn {
+  margin-top: 4px; padding: 9px 24px;
+  background: var(--amber); color: #000; border: none;
+  border-radius: 5px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px; font-weight: 800;
+  letter-spacing: 0.2em; text-transform: uppercase;
+  cursor: pointer; transition: all 0.15s;
+}
+.ms-ov-btn:hover { opacity: 0.85; }
+
+/* ── SUDOKU ── */
+.sdk-panel {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: 0 0 0 1px rgba(255,255,255,0.03), 0 20px 50px rgba(0,0,0,0.5);
+  max-width: 500px;
+}
+.sdk-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border);
+  background: var(--display-bg);
+}
+.sdk-title { font-size: 11px; font-weight: 800; letter-spacing: 0.2em; text-transform: uppercase; }
+.sdk-controls { display: flex; gap: 6px; align-items: center; }
+.sdk-diff-btn {
+  padding: 4px 10px;
+  background: transparent; border: 1px solid var(--border);
+  border-radius: 4px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px; font-weight: 700;
+  letter-spacing: 0.1em; text-transform: uppercase;
+  color: var(--text-dim); cursor: pointer;
+  transition: all 0.12s;
+}
+.sdk-diff-btn:hover { color: var(--text); border-color: var(--text-mid); }
+.sdk-diff-btn.active { background: var(--amber); border-color: var(--amber); color: #000; }
+.sdk-new-btn {
+  padding: 4px 10px;
+  background: var(--surface2); border: 1px solid var(--border);
+  border-radius: 4px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px; font-weight: 700;
+  letter-spacing: 0.1em; text-transform: uppercase;
+  color: var(--text-mid); cursor: pointer;
+  transition: all 0.12s;
+}
+.sdk-new-btn:hover { color: var(--amber); border-color: var(--amber); }
+.sdk-grid-wrap { padding: 16px; }
+.sdk-grid {
+  display: grid;
+  grid-template-columns: repeat(9, 1fr);
+  border: 2px solid var(--text-mid);
+  border-radius: 4px;
+  overflow: hidden;
+}
+.sdk-cell {
+  aspect-ratio: 1;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 16px; font-weight: 700;
+  border: 0.5px solid var(--border2);
+  background: var(--cell-revealed);
+  cursor: pointer;
+  transition: background 0.08s;
+  position: relative;
+}
+/* thick borders for 3x3 boxes */
+.sdk-cell.bb { border-right: 2px solid var(--text-dim); }
+.sdk-cell.br { border-bottom: 2px solid var(--text-dim); }
+.sdk-cell.given { color: var(--text); font-weight: 800; cursor: default; }
+.sdk-cell.user-input { color: var(--blue); }
+.sdk-cell.error { color: var(--red); background: rgba(224,60,60,0.1); }
+.sdk-cell.selected { background: rgba(74,158,255,0.12); }
+.sdk-cell.highlighted { background: rgba(255,255,255,0.04); }
+.sdk-cell.same-num { background: rgba(240,165,0,0.1); }
+.sdk-footer {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 10px 16px;
+  border-top: 1px solid var(--border);
+  background: var(--display-bg);
+}
+.sdk-timer { font-family: 'Share Tech Mono', monospace; font-size: 20px; color: var(--amber); text-shadow: 0 0 8px var(--amber); }
+.sdk-errors { font-size: 10px; color: var(--text-dim); }
+.sdk-errors span { color: var(--red); }
+.sdk-complete {
+  position: absolute; inset: 0;
+  background: rgba(13,15,20,0.93);
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center; gap: 12px;
+  z-index: 10; border-radius: 10px;
+  animation: fadeIn 0.3s ease;
+}
+
+/* scrollbar global */
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+/* ── ICON BUTTONS (topbar mobile) ── */
+.icon-btn {
+  width: 36px; height: 36px;
+  background: transparent; border: 1px solid var(--border);
+  border-radius: 8px; cursor: pointer; color: var(--text-mid);
+  font-size: 16px; display: flex; align-items: center; justify-content: center;
+  transition: all 0.12s; flex-shrink: 0;
+}
+.icon-btn:hover { border-color: var(--amber); color: var(--amber); }
+.icon-btn.active { background: var(--amber-dim); border-color: rgba(240,165,0,0.4); color: var(--amber); }
+
+/* ── OVERLAY BACKDROP ── */
+.drawer-backdrop {
+  position: fixed; inset: 0;
+  top: 48px;
+  bottom: 56px;
+  background: rgba(0,0,0,0.55);
+  z-index: 55;
+  animation: fadeIn 0.2s ease;
+}
+
+/* ── DRAWER (shared) ── */
+.drawer {
+  position: fixed; top: 48px; bottom: 0;
+  z-index: 60;
+  transition: transform 0.25s cubic-bezier(0.4,0,0.2,1);
+  display: flex; flex-direction: column;
+}
+.drawer-left  { left: 0;  transform: translateX(-100%); }
+.drawer-right { right: 0; transform: translateX(100%); }
+.drawer-left.open  { transform: translateX(0); }
+.drawer-right.open { transform: translateX(0); }
+
+/* ── TABLET: sidebar collapses to icons ── */
+@media (max-width: 1080px) and (min-width: 681px) {
+  :root { --sidebar-width: 56px; --chat-width: 240px; }
+  .sidebar-section { padding: 12px 8px 6px; }
+  .sidebar-title { display: none; }
+  .nav-item { justify-content: center; padding: 10px 8px; }
+  .nav-item span:not(.nav-icon) { display: none; }
+  .nav-badge { display: none; }
+  .profile-card { display: none; }
+  .nav-icon { width: auto; font-size: 18px; }
+}
+
+/* ── MOBILE: sidebar + chat become drawers ── */
+@media (max-width: 680px) {
+  html, body { overflow: hidden; }
+  .layout { overflow: hidden; }
+
+  /* sidebar becomes a drawer */
+  .sidebar {
+    width: 240px;
+    position: fixed; top: 48px; bottom: 56px; left: 0;
+    z-index: 65;
+    transform: translateX(-100%);
+    transition: transform 0.3s cubic-bezier(0.4,0,0.2,1);
+    border-right: 2px solid rgba(255,182,39,0.3);
+    background: var(--surface);
+    box-shadow: 20px 0 50px rgba(0,0,0,0.8), 2px 0 0 rgba(255,182,39,0.2);
+  }
+  .sidebar.open { transform: translateX(0) !important; }
+
+  /* chat becomes a drawer */
+  .chat-panel {
+    width: 100%;
+    max-width: 340px;
+    position: fixed; top: 48px; bottom: 56px; right: 0;
+    z-index: 65;
+    transform: translateX(100%);
+    transition: transform 0.3s cubic-bezier(0.4,0,0.2,1);
+    border-left: 2px solid rgba(255,182,39,0.3);
+    background: var(--surface);
+    box-shadow: -20px 0 50px rgba(0,0,0,0.8), -2px 0 0 rgba(255,182,39,0.2);
+  }
+  .chat-panel.open { transform: translateX(0) !important; }
+
+  /* game area takes full width */
+  .game-area { padding: 16px 12px; }
+
+  /* topbar adjustments */
+  .topbar { padding: 0 10px; gap: 8px; }
+  .topbar-logo { font-size: 11px; letter-spacing: 0.2em; }
+  .profile-pill .profile-name,
+  .profile-pill .profile-pts { display: none; }
+  .profile-pill { padding: 4px 6px; }
+
+  /* modal full width on mobile */
+  .modal { width: calc(100vw - 32px); padding: 24px; }
+
+  /* bottom nav bar */
+  .bottom-nav {
+    display: flex !important;
+  }
+}
+
+/* bottom nav (mobile only) */
+.bottom-nav {
+  display: none;
+  position: fixed; bottom: 0; left: 0; right: 0;
+  height: 56px;
+  background: linear-gradient(180deg, rgba(5,7,11,0.95), var(--display-bg));
+  backdrop-filter: blur(10px);
+  border-top: 1px solid rgba(255,182,39,0.2);
+  box-shadow: 0 -4px 20px rgba(0,0,0,0.6), 0 -1px 0 rgba(255,182,39,0.1);
+  z-index: 70;
+  align-items: stretch;
+}
+.bottom-nav-item {
+  flex: 1; display: flex; flex-direction: column;
+  align-items: center; justify-content: center; gap: 3px;
+  font-size: 9px; font-weight: 700; letter-spacing: 0.12em;
+  text-transform: uppercase; color: var(--text-dim);
+  cursor: pointer; transition: all 0.15s;
+  border: none; background: transparent;
+  font-family: 'JetBrains Mono', monospace;
+  position: relative;
+}
+.bottom-nav-item .bn-icon { font-size: 18px; transition: transform 0.15s; }
+.bottom-nav-item.active {
+  color: var(--amber);
+  text-shadow: 0 0 12px rgba(255,182,39,0.6);
+}
+.bottom-nav-item.active .bn-icon {
+  transform: scale(1.15);
+  filter: drop-shadow(0 0 6px rgba(255,182,39,0.7));
+}
+.bottom-nav-item.active::before {
+  content: ''; position: absolute; top: 0; left: 20%; right: 20%; height: 2px;
+  background: var(--amber);
+  box-shadow: 0 0 8px var(--amber);
+}
+.bottom-nav-item:hover { color: var(--text); }
+
+/* push content up so bottom nav doesn't cover game */
+@media (max-width: 680px) {
+  .layout { padding-bottom: 56px; }
+}
+
+/* ══════════════════════ LIGHT THEME ══════════════════════ */
+body[data-theme="light"] {
+  --bg: #f4f2ec;
+  --surface: #ffffff;
+  --surface2: #f8f6f0;
+  --border: #e2ddd0;
+  --border2: #d9d3c3;
+  --amber: #c98800;
+  --amber-dim: rgba(201,136,0,0.10);
+  --amber-glow: rgba(201,136,0,0.35);
+  --cyan: #0099b0;
+  --cyan-dim: rgba(0,153,176,0.10);
+  --red: #c7304e;
+  --green: #2d9958;
+  --blue: #2e6ecb;
+  --purple: #7d3ea6;
+  --text: #1a1d24;
+  --text-dim: #8a8576;
+  --text-mid: #5a5648;
+  --cell-hidden: #f8f6f0;
+  --cell-hover: #e8e2d0;
+  --cell-revealed: #ece6d4;
+  --display-bg: #1a1d24;
+}
+body[data-theme="light"]::before {
+  background-image:
+    linear-gradient(rgba(0,0,0,0.025) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0,0,0,0.025) 1px, transparent 1px) !important;
+  opacity: 0.7;
+}
+body[data-theme="light"] .topbar {
+  background: rgba(255,255,255,0.9);
+  border-bottom: 1px solid var(--border);
+  box-shadow: 0 1px 0 rgba(0,0,0,0.03);
+}
+body[data-theme="light"] .sidebar,
+body[data-theme="light"] .chat-panel,
+body[data-theme="light"] .game-area,
+body[data-theme="local"] .bottom-nav { background: var(--bg); }
+body[data-theme="light"] .bottom-nav { background: rgba(255,255,255,0.96); border-top: 1px solid var(--border); }
+body[data-theme="light"] .profile-avatar { color: #fff; }
+body[data-theme="light"] .lcd { background: #1a1d24; color: #ff4444; }
+body[data-theme="light"] .chat-msg-user { text-shadow: none; }
+body[data-theme="light"] .chat-title { text-shadow: none; }
+
+/* ══════════════════════ BOMB PARTY ══════════════════════ */
+.bp-panel {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 24px;
+  width: 100%;
+  max-width: 520px;
+  display: flex; flex-direction: column; gap: 14px;
+  position: relative; overflow: hidden;
+}
+.bp-panel::before {
+  content: ''; position: absolute; inset: 0;
+  background: radial-gradient(ellipse at top, rgba(255,56,96,0.08), transparent 60%);
+  pointer-events: none;
+}
+.bp-title {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 22px; font-weight: 800;
+  letter-spacing: 0.2em; color: var(--red);
+  text-align: center;
+  text-shadow: 0 0 16px rgba(255,56,96,0.5);
+}
+.bp-sub {
+  font-size: 11px; color: var(--text-dim);
+  text-align: center; line-height: 1.6;
+}
+.bp-start-btn {
+  background: var(--red); color: #fff;
+  border: none; border-radius: 6px;
+  padding: 12px 28px; font-size: 13px; font-weight: 700;
+  font-family: 'JetBrains Mono', monospace;
+  letter-spacing: 0.15em; text-transform: uppercase;
+  cursor: pointer; align-self: center; margin-top: 8px;
+  box-shadow: 0 0 20px rgba(255,56,96,0.4);
+  transition: transform 0.15s;
+}
+.bp-start-btn:hover { transform: translateY(-1px); }
+.bp-rules {
+  font-size: 10px; color: var(--text-mid);
+  line-height: 1.8; margin-top: 8px;
+  padding: 12px; background: var(--cell-hidden);
+  border-radius: 6px; border: 1px solid var(--border);
+}
+.bp-hud {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 10px 14px; background: var(--display-bg);
+  border-radius: 6px; border: 1px solid var(--border);
+}
+.bp-lives { display: flex; gap: 4px; }
+.bp-heart { font-size: 18px; filter: drop-shadow(0 0 6px rgba(255,56,96,0.6)); transition: all 0.3s; }
+.bp-heart.lost { opacity: 0.15; filter: grayscale(1); }
+.bp-score { font-size: 14px; font-weight: 800; color: var(--amber); }
+.bp-round { font-size: 10px; color: var(--text-dim); letter-spacing: 0.15em; text-transform: uppercase; }
+.bp-bomb-wrap {
+  display: flex; flex-direction: column; align-items: center;
+  gap: 6px; padding: 20px 0;
+  position: relative;
+}
+.bp-bomb { font-size: 64px; line-height: 1; transition: transform 0.1s; }
+@keyframes bp-shake {
+  0%, 100% { transform: translate(0, 0) rotate(0); }
+  25% { transform: translate(-3px, -2px) rotate(-3deg); }
+  50% { transform: translate(3px, 1px) rotate(2deg); }
+  75% { transform: translate(-1px, 2px) rotate(-1deg); }
+}
+.bp-timer {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 20px; font-weight: 800;
+  letter-spacing: 0.1em;
+}
+.bp-syllable {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 48px; font-weight: 800;
+  text-align: center; color: var(--amber);
+  letter-spacing: 0.1em;
+  padding: 16px; background: var(--cell-hidden);
+  border: 2px solid var(--amber);
+  border-radius: 8px;
+  text-shadow: 0 0 20px rgba(255,182,39,0.5);
+  box-shadow: inset 0 0 30px rgba(255,182,39,0.08), 0 0 30px rgba(255,182,39,0.15);
+}
+.bp-input {
+  width: 100%;
+  background: var(--cell-hidden);
+  border: 2px solid var(--border);
+  border-radius: 6px;
+  padding: 14px 18px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 18px; font-weight: 700;
+  color: var(--text); text-align: center;
+  letter-spacing: 0.05em;
+  outline: none; transition: all 0.15s;
+}
+.bp-input:focus { border-color: var(--amber); box-shadow: 0 0 0 3px rgba(255,182,39,0.15); }
+.bp-msg {
+  text-align: center; font-size: 12px; font-weight: 700;
+  min-height: 18px; animation: fadeIn 0.2s;
+}
+.bp-letters {
+  display: flex; flex-wrap: wrap; justify-content: center;
+  gap: 3px; padding: 8px; background: var(--cell-hidden);
+  border-radius: 6px; border: 1px solid var(--border);
+}
+.bp-letter {
+  width: 22px; height: 22px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 10px; font-weight: 700; text-transform: uppercase;
+  color: var(--text-dim);
+  background: var(--surface); border-radius: 3px;
+  transition: all 0.3s;
+}
+.bp-letter.used {
+  color: #000; background: var(--amber);
+  box-shadow: 0 0 8px rgba(255,182,39,0.4);
+}
+
+/* ══════════════════════ LEADERBOARD ══════════════════════ */
+.lb-panel {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0;
+  width: 100%; max-width: 620px;
+  display: flex; flex-direction: column;
+  overflow: hidden;
+}
+.lb-header {
+  padding: 18px 22px;
+  border-bottom: 1px solid var(--border);
+  background: linear-gradient(180deg, rgba(255,182,39,0.06), transparent);
+}
+.lb-title {
+  font-size: 18px; font-weight: 800;
+  letter-spacing: 0.12em; text-transform: uppercase;
+  color: var(--amber);
+  text-shadow: 0 0 12px rgba(255,182,39,0.3);
+}
+.lb-sub {
+  font-size: 10px; color: var(--text-dim);
+  margin-top: 4px;
+}
+.lb-list {
+  display: flex; flex-direction: column;
+  max-height: 540px; overflow-y: auto;
+}
+.lb-list::-webkit-scrollbar { width: 4px; }
+.lb-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+.lb-row {
+  display: grid;
+  grid-template-columns: 40px 1fr auto auto;
+  gap: 12px; align-items: center;
+  padding: 10px 22px;
+  border-bottom: 1px solid var(--border2);
+  transition: background 0.15s;
+}
+.lb-row:hover { background: var(--cell-hidden); }
+.lb-row.self {
+  background: linear-gradient(90deg, var(--amber-dim), transparent);
+  border-left: 2px solid var(--amber);
+}
+.lb-rank {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 15px; font-weight: 800;
+  color: var(--text-dim);
+  text-align: center;
+}
+.lb-row.top1 .lb-rank { color: #ffd700; text-shadow: 0 0 10px #ffd700; font-size: 18px; }
+.lb-row.top2 .lb-rank { color: #c0c0c0; text-shadow: 0 0 10px #c0c0c0; font-size: 17px; }
+.lb-row.top3 .lb-rank { color: #cd7f32; text-shadow: 0 0 10px #cd7f32; font-size: 16px; }
+.lb-name { font-size: 13px; font-weight: 700; color: var(--text); }
+.lb-rank-badge {
+  font-size: 9px; letter-spacing: 0.1em; text-transform: uppercase;
+  color: var(--text-dim); font-weight: 600;
+}
+.lb-pts {
+  font-size: 15px; font-weight: 800; color: var(--amber);
+  font-family: 'Share Tech Mono', monospace;
+}
+.lb-empty {
+  padding: 40px 20px; text-align: center;
+  color: var(--text-dim); font-size: 12px; line-height: 1.8;
+}
+.lb-dot {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: var(--green); box-shadow: 0 0 6px var(--green);
+  display: inline-block; margin-right: 8px;
+}
+
+/* ══════════════════════ THEME TOGGLE ══════════════════════ */
+.theme-toggle {
+  display: flex; gap: 4px;
+  background: var(--cell-hidden);
+  border: 1px solid var(--border);
+  border-radius: 20px; padding: 3px;
+  margin-top: 10px;
+}
+.theme-toggle button {
+  flex: 1; background: transparent; border: none;
+  padding: 6px 10px; border-radius: 16px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px; color: var(--text-dim);
+  cursor: pointer; transition: all 0.15s;
+  display: flex; align-items: center; justify-content: center; gap: 4px;
+}
+.theme-toggle button.active {
+  background: var(--amber); color: #000; font-weight: 700;
+  box-shadow: 0 0 10px rgba(255,182,39,0.35);
+}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const { useState, useEffect, useCallback, useRef, useMemo } = React;
+
+/* ═══════════════════════════ UTILITIES ═══════════════════════════ */
+
+function getCookie(name) {
+  const m = document.cookie.match('(^|;)\\s*' + name + '\\s*=\\s*([^;]+)');
+  return m ? decodeURIComponent(m[2]) : null;
+}
+function setCookie(name, val, days = 365) {
+  const exp = new Date(Date.now() + days * 864e5).toUTCString();
+  document.cookie = `${name}=${encodeURIComponent(val)};expires=${exp};path=/`;
+}
+function getProfile() {
+  try { const r = getCookie('arcade_profile'); if (r) return JSON.parse(r); } catch {}
+  return null;
+}
+function saveProfile(p) { setCookie('arcade_profile', JSON.stringify(p)); }
+
+const RANKS = [
+  { min: 0,     label: 'Recrue',    next: 500   },
+  { min: 500,   label: 'Détective', next: 2000  },
+  { min: 2000,  label: 'Expert',    next: 5000  },
+  { min: 5000,  label: 'Maître',    next: 10000 },
+  { min: 10000, label: 'Légende',   next: 20000 },
+];
+function getRank(pts) {
+  for (let i = RANKS.length - 1; i >= 0; i--)
+    if (pts >= RANKS[i].min) return RANKS[i];
+  return RANKS[0];
+}
+function fmtTime(s) {
+  return `${String(Math.floor(s/60)).padStart(2,'0')}:${String(s%60).padStart(2,'0')}`;
+}
+function initials(name) { return name.slice(0,2).toUpperCase(); }
+
+/* ═══════════════════════════ SUDOKU ═══════════════════════════ */
+
+function shuffle(arr) {
+  const a = [...arr];
+  for (let i = a.length-1; i > 0; i--) {
+    const j = Math.floor(Math.random()*(i+1));
+    [a[i],a[j]] = [a[j],a[i]];
+  }
+  return a;
+}
+function sdkValid(grid, r, c, n) {
+  if (grid[r].includes(n)) return false;
+  if (grid.some(row => row[c] === n)) return false;
+  const br = Math.floor(r/3)*3, bc = Math.floor(c/3)*3;
+  for (let i=0;i<3;i++) for (let j=0;j<3;j++) if (grid[br+i][bc+j]===n) return false;
+  return true;
+}
+function sdkSolve(grid, rand=false) {
+  for (let r=0;r<9;r++) for (let c=0;c<9;c++) {
+    if (grid[r][c]===0) {
+      const nums = rand ? shuffle([1,2,3,4,5,6,7,8,9]) : [1,2,3,4,5,6,7,8,9];
+      for (const n of nums) {
+        if (sdkValid(grid,r,c,n)) {
+          grid[r][c]=n;
+          if (sdkSolve(grid,rand)) return true;
+          grid[r][c]=0;
+        }
+      }
+      return false;
+    }
+  }
+  return true;
+}
+function generateSudoku(difficulty='medium') {
+  const sol = Array(9).fill(null).map(()=>Array(9).fill(0));
+  sdkSolve(sol, true);
+  const removes = {easy:36, medium:46, hard:56}[difficulty] || 46;
+  const puzzle = sol.map(r=>[...r]);
+  const cells = shuffle(Array.from({length:81},(_,i)=>i));
+  for (let i=0;i<removes;i++) {
+    const idx=cells[i];
+    puzzle[Math.floor(idx/9)][idx%9]=0;
+  }
+  return { puzzle, solution: sol };
+}
+
+/* ═══════════════════════════ MINESWEEPER LOGIC ═══════════════════════════ */
+
+const MS_DIFFS = {
+  beginner:     { cols:9,  rows:9,  mines:10  },
+  intermediate: { cols:16, rows:16, mines:40  },
+  expert:       { cols:30, rows:16, mines:99  },
+};
+const MS_PTS = { beginner:100, intermediate:300, expert:1000 };
+const NUM_CLS = ['','n1','n2','n3','n4','n5','n6','n7','n8'];
+
+function mkCells(r,c) {
+  return Array.from({length:r*c},(_,i)=>({
+    id:i, row:Math.floor(i/c), col:i%c,
+    mine:false, revealed:false, flagged:false, count:0, hitMine:false, jr:false,
+  }));
+}
+function getNbrs(row,col,rows,cols) {
+  const ids=[];
+  for(let dr=-1;dr<=1;dr++) for(let dc=-1;dc<=1;dc++) {
+    if(dr===0&&dc===0) continue;
+    const r=row+dr,c=col+dc;
+    if(r>=0&&r<rows&&c>=0&&c<cols) ids.push(r*cols+c);
+  }
+  return ids;
+}
+function placeMines(cells,rows,cols,mines,safeIdx) {
+  const next=cells.map(c=>({...c}));
+  const cands=next.map(c=>c.id).filter(id=>id!==safeIdx);
+  for(let i=cands.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[cands[i],cands[j]]=[cands[j],cands[i]];}
+  const mineSet=new Set(cands.slice(0,mines));
+  next.forEach(c=>{if(mineSet.has(c.id))c.mine=true;});
+  next.forEach(c=>{if(!c.mine)c.count=getNbrs(c.row,c.col,rows,cols).filter(nid=>next[nid].mine).length;});
+  return next;
+}
+function floodReveal(cells,startId,rows,cols) {
+  const next=cells.map(c=>({...c}));
+  const q=[startId], vis=new Set();
+  while(q.length){
+    const id=q.shift();
+    if(vis.has(id)) continue;
+    vis.add(id);
+    const c=next[id];
+    if(c.flagged||c.revealed) continue;
+    c.revealed=true; c.jr=true;
+    if(c.count===0&&!c.mine) getNbrs(c.row,c.col,rows,cols).forEach(nid=>{if(!vis.has(nid))q.push(nid);});
+  }
+  return next;
+}
+function checkMsWin(cells,mines) {
+  const h=cells.filter(c=>!c.revealed);
+  return h.length===mines&&h.every(c=>c.mine);
+}
+
+/* ═══════════════════════════ PROFILE MODAL ═══════════════════════════ */
+
+function ProfileModal({ onSave, initial }) {
+  const [name, setName] = useState(initial || '');
+  return (
+    <div className="modal-overlay">
+      <div className="modal">
+        <div className="modal-logo">⬛ Arcade</div>
+        <div className="modal-title">{initial ? 'Modifier le profil' : 'Bienvenue !'}</div>
+        <div className="modal-sub">
+          {initial
+            ? 'Changez votre pseudo. Vos points sont conservés.'
+            : 'Choisissez un pseudo pour sauvegarder vos scores et rejoindre le chat global.'}
+        </div>
+        <div className="modal-label">Pseudo</div>
+        <input
+          className="modal-input"
+          value={name}
+          onChange={e=>setName(e.target.value)}
+          onKeyDown={e=>e.key==='Enter'&&name.trim().length>=2&&onSave(name.trim())}
+          placeholder="ex. Joueur42"
+          maxLength={20}
+          autoFocus
+        />
+        <button
+          className="modal-btn"
+          disabled={name.trim().length < 2}
+          onClick={()=>onSave(name.trim())}
+        >Jouer →</button>
+      </div>
+    </div>
+  );
+}
+
+/* ═══════════════════════════ MINESWEEPER GAME ═══════════════════════════ */
+
+function MinesweeperGame({ onPoints }) {
+  const savedDiff = localStorage.getItem('ms-diff') || 'beginner';
+  const [diff, setDiff] = useState(savedDiff);
+  const { rows, cols, mines } = MS_DIFFS[diff];
+  const [cells, setCells] = useState(() => mkCells(rows, cols));
+  const [gs, setGs] = useState('idle');
+  const [mLeft, setMLeft] = useState(mines);
+  const [time, setTime] = useState(0);
+  const [moves, setMoves] = useState(0);
+  const [earnedPts, setEarnedPts] = useState(0);
+  const timerRef = useRef(null);
+
+  const reset = useCallback((d=diff) => {
+    clearInterval(timerRef.current);
+    const {rows:r, cols:c, mines:m} = MS_DIFFS[d];
+    setCells(mkCells(r,c));
+    setGs('idle'); setMLeft(m); setTime(0); setMoves(0);
+  }, [diff]);
+
+  useEffect(() => {
+    clearInterval(timerRef.current);
+    if (gs==='playing') timerRef.current = setInterval(()=>setTime(t=>t+1),1000);
+    return ()=>clearInterval(timerRef.current);
+  }, [gs]);
+
+  const changeDiff = (d) => {
+    setDiff(d);
+    localStorage.setItem('ms-diff',d);
+    reset(d);
+  };
+
+  const reveal = (id) => {
+    if (gs==='won'||gs==='lost') return;
+    const cell=cells[id];
+    if (cell.revealed||cell.flagged) return;
+    let next=[...cells], state=gs;
+    if (gs==='idle') {
+      next=placeMines(next,rows,cols,mines,id);
+      state='playing'; setGs('playing');
+    }
+    const c=next[id];
+    if (c.mine) {
+      const ex=next.map(cl=>({...cl, ...(cl.mine&&!cl.flagged?{revealed:true}:{}), ...(cl.id===id?{hitMine:true}:{})}));
+      setCells(ex); setGs('lost'); return;
+    }
+    next=floodReveal(next,id,rows,cols);
+    setMoves(m=>m+1);
+    if (checkMsWin(next,mines)) {
+      const flagged=next.map(c=>c.mine?{...c,flagged:true}:c);
+      setCells(flagged); setMLeft(0); setGs('won');
+      const bonus = Math.max(0, (MS_PTS[diff]*2) - time);
+      const pts = MS_PTS[diff] + Math.floor(bonus/2);
+      setEarnedPts(pts);
+      onPoints(pts);
+    } else {
+      setCells(next);
+      if (state==='idle') setGs('playing');
+    }
+  };
+
+  const flag = (e, id) => {
+    e.preventDefault();
+    if (gs==='won'||gs==='lost') return;
+    const cell=cells[id];
+    if (cell.revealed) return;
+    const next=cells.map(c=>c.id!==id?c:{...c,flagged:!c.flagged});
+    setMLeft(mines - next.filter(c=>c.flagged).length);
+    setCells(next);
+  };
+
+  const chord = (id) => {
+    if (gs!=='playing') return;
+    const cell=cells[id];
+    if (!cell.revealed||cell.count===0) return;
+    const nbrs=getNbrs(cell.row,cell.col,rows,cols);
+    if (nbrs.filter(nid=>cells[nid].flagged).length!==cell.count) return;
+    let next=[...cells], boom=false;
+    nbrs.forEach(nid=>{
+      const n=next[nid];
+      if (!n.revealed&&!n.flagged) {
+        if (n.mine) boom=true;
+        next=floodReveal(next,nid,rows,cols);
+      }
+    });
+    if (boom) {
+      const ex=next.map(cl=>({...cl,...(cl.mine&&!cl.flagged?{revealed:true}:{})}));
+      setCells(ex); setGs('lost'); return;
+    }
+    setMoves(m=>m+1);
+    if (checkMsWin(next,mines)) {
+      const flagged=next.map(c=>c.mine?{...c,flagged:true}:c);
+      setCells(flagged); setMLeft(0); setGs('won');
+      const pts=MS_PTS[diff]+Math.floor(Math.max(0,(MS_PTS[diff]*2)-time)/2);
+      setEarnedPts(pts); onPoints(pts);
+    } else setCells(next);
+  };
+
+  const face = gs==='won'?'😎':gs==='lost'?'💀':'🙂';
+
+  return (
+    <div className="ms-panel" style={{position:'relative'}}>
+      <div className="ms-diff-bar">
+        {Object.entries(MS_DIFFS).map(([k])=>(
+          <button key={k} className={`ms-diff-btn${diff===k?' active':''}`} onClick={()=>changeDiff(k)}>
+            {k.slice(0,3)}
+          </button>
+        ))}
+      </div>
+      <div className="ms-hud">
+        <div className="lcd">
+          <span className="lcd-icon">💣</span>
+          {String(Math.max(0,mLeft)).padStart(3,'0').split('').map((d,i)=><span key={i} className="lcd-digit">{d}</span>)}
+        </div>
+        <button className="reset-btn" onClick={()=>reset()}>{face}</button>
+        <div className="lcd">
+          <span className="lcd-icon">⏱</span>
+          {String(Math.min(999,time)).padStart(3,'0').split('').map((d,i)=><span key={i} className="lcd-digit">{d}</span>)}
+        </div>
+      </div>
+      <div className="ms-grid-wrap">
+        <div className="ms-grid" style={{gridTemplateColumns:`repeat(${cols},28px)`,gap:2}}>
+          {cells.map(cell=>{
+            let cls='cell';
+            if (!cell.revealed&&!cell.flagged) cls+=' hidden';
+            if (cell.revealed&&!cell.mine) cls+=' revealed';
+            if (cell.flagged) cls+=' flagged hidden';
+            if (cell.hitMine) cls+=' mine-hit';
+            if (cell.revealed&&cell.mine&&!cell.hitMine) cls+=' mine-shown';
+            if (cell.jr&&!cell.mine) cls+=' just-revealed';
+            return (
+              <div key={cell.id} className={cls}
+                style={{width:28,height:28}}
+                onClick={cell.revealed?()=>chord(cell.id):()=>reveal(cell.id)}
+                onContextMenu={e=>flag(e,cell.id)}
+              >
+                {cell.flagged ? '🚩' :
+                 !cell.revealed ? null :
+                 cell.mine ? '💣' :
+                 cell.count > 0 ? <span className={NUM_CLS[cell.count]}>{cell.count}</span> : null}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+      <div className="ms-stats">
+        <div className="ms-stat">Temps <span>{fmtTime(time)}</span></div>
+        <div className="ms-stat">Coups <span>{moves}</span></div>
+        <div className="ms-stat">Mines <span>{MS_DIFFS[diff].mines}</span></div>
+      </div>
+      {(gs==='won'||gs==='lost') && (
+        <div className="ms-overlay">
+          <div className={`ms-ov-title ${gs==='won'?'win':'lose'}`}>
+            {gs==='won'?'✦ Gagné !':'✕ Perdu'}
+          </div>
+          <div className="ms-ov-sub">
+            {gs==='won'
+              ? `${fmtTime(time)} · ${moves} coups`
+              : 'Le champ était miné…'}
+          </div>
+          {gs==='won' && <div className="ms-ov-pts">+{earnedPts} pts</div>}
+          <button className="ms-ov-btn" onClick={()=>reset()}>Rejouer</button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ═══════════════════════════ SUDOKU GAME ═══════════════════════════ */
+
+const SDK_PTS = { easy:200, medium:500, hard:800 };
+
+function SudokuGame({ onPoints }) {
+  const [diff, setDiff] = useState('medium');
+  const [puzzle, setPuzzle] = useState(null);
+  const [solution, setSolution] = useState(null);
+  const [userGrid, setUserGrid] = useState(null);
+  const [selected, setSelected] = useState(null);
+  const [errors, setErrors] = useState(0);
+  const [time, setTime] = useState(0);
+  const [complete, setComplete] = useState(false);
+  const [earnedPts, setEarnedPts] = useState(0);
+  const timerRef = useRef(null);
+
+  const newGame = useCallback((d=diff) => {
+    clearInterval(timerRef.current);
+    const { puzzle: p, solution: s } = generateSudoku(d);
+    setPuzzle(p);
+    setSolution(s);
+    setUserGrid(p.map(r=>[...r]));
+    setSelected(null);
+    setErrors(0);
+    setTime(0);
+    setComplete(false);
+    timerRef.current = setInterval(()=>setTime(t=>t+1),1000);
+  }, [diff]);
+
+  useEffect(()=>{ newGame(); return()=>clearInterval(timerRef.current); },[]);
+
+  const changeDiff = (d) => { setDiff(d); newGame(d); };
+
+  const handleKey = useCallback((e) => {
+    if (!selected || complete || !puzzle) return;
+    const [r,c] = selected;
+    if (puzzle[r][c] !== 0) return; // given cell
+    const num = parseInt(e.key);
+    if (num >= 1 && num <= 9) {
+      const newGrid = userGrid.map(row=>[...row]);
+      newGrid[r][c] = num;
+      setUserGrid(newGrid);
+      if (num !== solution[r][c]) setErrors(e=>e+1);
+      // check win
+      let allCorrect = true;
+      for (let i=0;i<9;i++) for (let j=0;j<9;j++)
+        if (newGrid[i][j] !== solution[i][j]) { allCorrect=false; break; }
+      if (allCorrect) {
+        clearInterval(timerRef.current);
+        setComplete(true);
+        const pts = SDK_PTS[diff] - errors * 20;
+        const earned = Math.max(50, pts);
+        setEarnedPts(earned);
+        onPoints(earned);
+      }
+    }
+    if (e.key==='Backspace'||e.key==='Delete') {
+      const newGrid = userGrid.map(row=>[...row]);
+      newGrid[r][c]=0;
+      setUserGrid(newGrid);
+    }
+    // arrow navigation
+    const moves={ArrowUp:[-1,0],ArrowDown:[1,0],ArrowLeft:[0,-1],ArrowRight:[0,1]};
+    if (moves[e.key]) {
+      const [dr,dc]=moves[e.key];
+      setSelected([Math.max(0,Math.min(8,r+dr)),Math.max(0,Math.min(8,c+dc))]);
+      e.preventDefault();
+    }
+  }, [selected, complete, puzzle, userGrid, solution, diff, errors]);
+
+  useEffect(()=>{
+    window.addEventListener('keydown', handleKey);
+    return()=>window.removeEventListener('keydown', handleKey);
+  },[handleKey]);
+
+  if (!puzzle || !userGrid) return null;
+
+  const selNum = selected ? userGrid[selected[0]][selected[1]] : 0;
+
+  return (
+    <div className="sdk-panel" style={{position:'relative'}} tabIndex={0}>
+      <div className="sdk-header">
+        <div className="sdk-title">Sudoku</div>
+        <div className="sdk-controls">
+          {['easy','medium','hard'].map(d=>(
+            <button key={d} className={`sdk-diff-btn${diff===d?' active':''}`} onClick={()=>changeDiff(d)}>
+              {d==='easy'?'Facile':d==='medium'?'Moyen':'Difficile'}
+            </button>
+          ))}
+          <button className="sdk-new-btn" onClick={()=>newGame()}>↺ Nouveau</button>
+        </div>
+      </div>
+      <div className="sdk-grid-wrap">
+        <div className="sdk-grid">
+          {puzzle.map((row,r)=>row.map((given,c)=>{
+            const val=userGrid[r][c];
+            const isSel=selected&&selected[0]===r&&selected[1]===c;
+            const isHighlight=selected&&(selected[0]===r||selected[1]===c||(Math.floor(selected[0]/3)===Math.floor(r/3)&&Math.floor(selected[1]/3)===Math.floor(c/3)));
+            const isSameNum=selNum>0&&val===selNum&&!isSel;
+            const isError=given===0&&val!==0&&val!==solution[r][c];
+            let cls='sdk-cell';
+            if (given!==0) cls+=' given';
+            else if (val!==0) cls+=' user-input';
+            if (isError) cls+=' error';
+            if (isSel) cls+=' selected';
+            else if (isSameNum) cls+=' same-num';
+            else if (isHighlight) cls+=' highlighted';
+            if (c===2||c===5) cls+=' bb';
+            if (r===2||r===5) cls+=' br';
+            return (
+              <div key={`${r}-${c}`} className={cls}
+                onClick={()=>setSelected([r,c])}
+              >
+                {val>0?val:''}
+              </div>
+            );
+          }))}
+        </div>
+        {/* Numpad */}
+        <div style={{display:'flex',justifyContent:'center',gap:6,marginTop:12}}>
+          {[1,2,3,4,5,6,7,8,9].map(n=>(
+            <button key={n}
+              onClick={()=>{ if(selected&&puzzle[selected[0]][selected[1]]===0){
+                const newGrid=userGrid.map(r=>[...r]);
+                newGrid[selected[0]][selected[1]]=n;
+                setUserGrid(newGrid);
+                if(n!==solution[selected[0]][selected[1]]) setErrors(e=>e+1);
+                let ok=true;
+                for(let i=0;i<9;i++)for(let j=0;j<9;j++) if(newGrid[i][j]!==solution[i][j]){ok=false;break;}
+                if(ok){clearInterval(timerRef.current);setComplete(true);const pts=Math.max(50,SDK_PTS[diff]-errors*20);setEarnedPts(pts);onPoints(pts);}
+              }}}
+              style={{width:36,height:36,background:'var(--cell-hidden)',border:'1px solid var(--border)',borderRadius:4,
+                color:'var(--blue)',fontFamily:'JetBrains Mono,monospace',fontSize:14,fontWeight:700,cursor:'pointer',
+                transition:'all 0.1s'}}
+            >{n}</button>
+          ))}
+          <button
+            onClick={()=>{if(selected&&puzzle[selected[0]][selected[1]]===0){const g=userGrid.map(r=>[...r]);g[selected[0]][selected[1]]=0;setUserGrid(g);}}}
+            style={{width:36,height:36,background:'var(--cell-hidden)',border:'1px solid var(--border)',borderRadius:4,
+              color:'var(--text-dim)',fontFamily:'JetBrains Mono,monospace',fontSize:11,cursor:'pointer'}}
+          >✕</button>
+        </div>
+      </div>
+      <div className="sdk-footer">
+        <div className="sdk-timer">{fmtTime(time)}</div>
+        <div className="sdk-errors">Erreurs : <span>{errors}</span></div>
+      </div>
+      {complete && (
+        <div className="sdk-complete">
+          <div className="ms-ov-title win">✦ Résolu !</div>
+          <div className="ms-ov-sub">{fmtTime(time)} · {errors} erreurs</div>
+          <div className="ms-ov-pts">+{earnedPts} pts</div>
+          <button className="ms-ov-btn" onClick={()=>newGame()}>Nouveau puzzle</button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ═══════════════════════════ BOMB PARTY ═══════════════════════════ */
+
+const BP_SYLLABLES = [
+  'tra','pla','bra','cla','cra','fra','gra','pra','sta','bla','fle','gle',
+  'tre','pre','bre','cre','gre','sre','pri','tri','bri','cri','sol','tro',
+  'pro','bro','cro','gro','ste','spe','sco','sch','che','chi','cho','chu',
+  'tion','ment','age','eur','ant','ent','ier','ire','oir','our','eux',
+  'ouil','aill','euill','ouil','ille','ouss','oiss','iss','oss','uss',
+  'amm','imm','omm','umm','inn','ann','onn','enn','unn','ell','oll','ill','ull',
+  'oin','ain','ein','ien','ion','ian','uin','our','eur','aur','oir','aur',
+  'rio','lio','mio','nio','sio','tio','pio','bio','dio','vio','zio',
+  'str','spr','scr','thr','phr','chr','shr'
+];
+
+const BP_VALID = /^[a-zàâäéèêëïîôöùûüÿçñæœ]+$/i;
+
+function BombPartyGame({ onPoints }) {
+  const [state, setState] = React.useState('idle');
+  const [syllable, setSyllable] = React.useState('');
+  const [input, setInput] = React.useState('');
+  const [lives, setLives] = React.useState(3);
+  const [timeLeft, setTimeLeft] = React.useState(10);
+  const [round, setRound] = React.useState(0);
+  const [score, setScore] = React.useState(0);
+  const [msg, setMsg] = React.useState({ text: '', type: '' });
+  const [letters, setLetters] = React.useState(new Set());
+  const [bonusUsed, setBonusUsed] = React.useState(false);
+  const usedRef = React.useRef(new Set());
+  const inputRef = React.useRef(null);
+  const roundRef = React.useRef(0);
+  const livesRef = React.useRef(3);
+  const scoreRef = React.useRef(0);
+
+  const pickSyllable = () => BP_SYLLABLES[Math.floor(Math.random() * BP_SYLLABLES.length)];
+
+  const start = () => {
+    usedRef.current = new Set();
+    roundRef.current = 0; livesRef.current = 3; scoreRef.current = 0;
+    setState('playing');
+    setLives(3); setRound(0); setScore(0);
+    setLetters(new Set()); setBonusUsed(false);
+    setSyllable(pickSyllable());
+    setTimeLeft(10);
+    setMsg({ text: '', type: '' });
+    setInput('');
+    setTimeout(() => inputRef.current?.focus(), 60);
+  };
+
+  // timer
+  React.useEffect(() => {
+    if (state !== 'playing') return;
+    const id = setInterval(() => {
+      setTimeLeft(t => {
+        if (t <= 0.1) {
+          // timeout — lose life
+          const newLives = livesRef.current - 1;
+          livesRef.current = newLives;
+          setLives(newLives);
+          if (newLives <= 0) {
+            setState('over');
+            if (scoreRef.current > 0) onPoints(scoreRef.current);
+            return 0;
+          }
+          setSyllable(pickSyllable());
+          setInput('');
+          setMsg({ text: '⚠ Trop lent !', type: 'bad' });
+          setTimeout(() => setMsg({ text: '', type: '' }), 1200);
+          return Math.max(4, 10 - roundRef.current * 0.15);
+        }
+        return t - 0.1;
+      });
+    }, 100);
+    return () => clearInterval(id);
+  }, [state, syllable]);
+
+  const submit = () => {
+    const w = input.trim().toLowerCase();
+    if (!w) return;
+    if (!BP_VALID.test(w)) { setMsg({ text: 'Lettres uniquement', type: 'bad' }); return; }
+    if (w.length < 3) { setMsg({ text: 'Min 3 lettres', type: 'bad' }); return; }
+    if (!w.includes(syllable)) { setMsg({ text: `Doit contenir "${syllable}"`, type: 'bad' }); return; }
+    if (usedRef.current.has(w)) { setMsg({ text: 'Déjà utilisé', type: 'bad' }); return; }
+
+    usedRef.current.add(w);
+    const pts = 100 + Math.floor(timeLeft * 10) + w.length * 5;
+    scoreRef.current += pts;
+    roundRef.current += 1;
+    setScore(scoreRef.current);
+    setRound(roundRef.current);
+
+    // letters tracking
+    const newLetters = new Set(letters);
+    [...w].forEach(c => { if (/[a-z]/.test(c)) newLetters.add(c); });
+    setLetters(newLetters);
+
+    let msgText = `✓ +${pts} pts`;
+    // bonus life if 20 different letters
+    if (!bonusUsed && newLetters.size >= 20 && livesRef.current < 4) {
+      livesRef.current += 1;
+      setLives(livesRef.current);
+      setBonusUsed(true);
+      msgText = '✦ BONUS +1 VIE !';
+    }
+    setMsg({ text: msgText, type: 'good' });
+    setTimeout(() => setMsg({ text: '', type: '' }), 1000);
+
+    setSyllable(pickSyllable());
+    setInput('');
+    setTimeLeft(Math.max(4, 10 - roundRef.current * 0.15));
+  };
+
+  if (state === 'idle') {
+    return (
+      <div className="bp-panel">
+        <div className="bp-title">BOMB PARTY</div>
+        <div className="bp-sub">Tapez un mot contenant la syllabe avant que la bombe n'explose !</div>
+        <button className="bp-start-btn" onClick={start}>Démarrer</button>
+        <div className="bp-rules">
+          <div>• 3 vies — perdez-en une par timer écoulé</div>
+          <div>• Mots de 3 lettres minimum, lettres uniquement</div>
+          <div>• Pas de mot en double</div>
+          <div>• Bonus : +1 vie à 20 lettres différentes utilisées</div>
+          <div>• Score : points × vitesse × longueur</div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="bp-panel" style={{position:'relative'}}>
+      <div className="bp-hud">
+        <div className="bp-lives">
+          {[...Array(Math.max(3, lives))].map((_, i) => (
+            <span key={i} className={`bp-heart${i < lives ? '' : ' lost'}`}>❤</span>
+          ))}
+        </div>
+        <div className="bp-round">Round {round + 1}</div>
+        <div className="bp-score">{score} pts</div>
+      </div>
+      <div className="bp-bomb-wrap">
+        <div className="bp-bomb" style={{
+          animation: timeLeft < 3 ? 'bp-shake 0.25s infinite' : 'none',
+          transform: `scale(${0.9 + (timeLeft/10)*0.2})`,
+        }}>💣</div>
+        <div className="bp-timer" style={{ color: timeLeft < 3 ? 'var(--red)' : 'var(--amber)' }}>
+          {timeLeft.toFixed(1)}s
+        </div>
+      </div>
+      <div className="bp-syllable">{syllable.toUpperCase()}</div>
+      <input
+        ref={inputRef}
+        className="bp-input"
+        value={input}
+        onChange={e => setInput(e.target.value)}
+        onKeyDown={e => e.key === 'Enter' && submit()}
+        placeholder="Tapez un mot…"
+        autoFocus
+        disabled={state !== 'playing'}
+      />
+      <div className="bp-msg" style={{
+        color: msg.type === 'good' ? 'var(--green)' : msg.type === 'bad' ? 'var(--red)' : 'transparent'
+      }}>
+        {msg.text || '\u00A0'}
+      </div>
+      <div className="bp-letters">
+        {'abcdefghijklmnopqrstuvwxyz'.split('').map(l => (
+          <span key={l} className={`bp-letter${letters.has(l) ? ' used' : ''}`}>{l}</span>
+        ))}
+      </div>
+      {state === 'over' && (
+        <div className="ms-overlay">
+          <div className="ms-ov-title lose">💥 BOOM !</div>
+          <div className="ms-ov-sub">{round} mots · {letters.size} lettres uniques</div>
+          <div className="ms-ov-pts">+{score} pts</div>
+          <button className="ms-ov-btn" onClick={start}>Rejouer</button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ═══════════════════════════ LEADERBOARD HOOK ═══════════════════════════ */
+
+function useLeaderboard(displayName, points, rank) {
+  const [players, setPlayers] = React.useState({});
+  const clientRef = React.useRef(null);
+  const SCORE_TOPIC = 'arcade-hub/scores/v1';
+  const meRef = React.useRef({ name: displayName, points, rank });
+
+  React.useEffect(() => {
+    meRef.current = { name: displayName, points, rank };
+  }, [displayName, points, rank]);
+
+  React.useEffect(() => {
+    let client;
+    try {
+      client = mqtt.connect('wss://broker.hivemq.com:8884/mqtt', {
+        clientId: 'arcade_lb_' + Math.random().toString(36).slice(2, 10),
+        clean: true, connectTimeout: 10000, reconnectPeriod: 4000, keepalive: 30,
+      });
+      client.on('connect', () => {
+        client.subscribe(SCORE_TOPIC, { qos: 0 });
+        // announce self
+        const me = meRef.current;
+        client.publish(SCORE_TOPIC, JSON.stringify({
+          name: me.name, points: me.points || 0, rank: me.rank?.label || 'Recrue', ts: Date.now()
+        }));
+      });
+      client.on('message', (_, msg) => {
+        try {
+          const m = JSON.parse(msg.toString());
+          if (!m.name) return;
+          setPlayers(prev => {
+            const existing = prev[m.name];
+            // only update if newer or higher score
+            if (existing && existing.ts > m.ts) return prev;
+            return { ...prev, [m.name]: { ...m, lastSeen: Date.now() } };
+          });
+        } catch {}
+      });
+      clientRef.current = client;
+
+      // heartbeat every 20s
+      const hb = setInterval(() => {
+        if (client.connected) {
+          const me = meRef.current;
+          client.publish(SCORE_TOPIC, JSON.stringify({
+            name: me.name, points: me.points || 0, rank: me.rank?.label || 'Recrue', ts: Date.now()
+          }));
+        }
+      }, 20000);
+      // cleanup stale (5 min)
+      const cleanup = setInterval(() => {
+        setPlayers(prev => {
+          const cutoff = Date.now() - 5 * 60 * 1000;
+          const filtered = {};
+          for (const [k, v] of Object.entries(prev)) {
+            if (v.lastSeen > cutoff) filtered[k] = v;
+          }
+          return filtered;
+        });
+      }, 30000);
+
+      return () => {
+        clearInterval(hb); clearInterval(cleanup);
+        if (client?.connected) client.end(true);
+      };
+    } catch {}
+  }, []);
+
+  // broadcast when points change
+  React.useEffect(() => {
+    if (clientRef.current?.connected) {
+      const me = meRef.current;
+      clientRef.current.publish(SCORE_TOPIC, JSON.stringify({
+        name: me.name, points: me.points || 0, rank: me.rank?.label || 'Recrue', ts: Date.now()
+      }));
+    }
+  }, [points, displayName, rank?.label]);
+
+  return players;
+}
+
+function LeaderboardView({ players, currentName }) {
+  const sorted = Object.values(players).sort((a, b) => (b.points || 0) - (a.points || 0));
+  const myRank = sorted.findIndex(p => p.name === currentName);
+
+  return (
+    <div className="lb-panel">
+      <div className="lb-header">
+        <div className="lb-title">🏆 Classement</div>
+        <div className="lb-sub">
+          <span className="lb-dot" />
+          {sorted.length} joueur{sorted.length > 1 ? 's' : ''} en ligne
+          {myRank >= 0 && ` · Vous : #${myRank + 1}`}
+        </div>
+      </div>
+      <div className="lb-list">
+        {sorted.length === 0 ? (
+          <div className="lb-empty">
+            Connexion au réseau…<br/>
+            <span style={{fontSize:10}}>Les autres joueurs apparaîtront ici.</span>
+          </div>
+        ) : sorted.slice(0, 50).map((p, i) => {
+          const isMe = p.name === currentName;
+          const topCls = i === 0 ? ' top1' : i === 1 ? ' top2' : i === 2 ? ' top3' : '';
+          return (
+            <div key={p.name} className={`lb-row${topCls}${isMe ? ' self' : ''}`}>
+              <div className="lb-rank">
+                {i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `#${i+1}`}
+              </div>
+              <div>
+                <div className="lb-name">{p.name}{isMe && <span style={{color:'var(--amber)',fontSize:10,marginLeft:6}}>(vous)</span>}</div>
+                <div className="lb-rank-badge">{p.rank || 'Recrue'}</div>
+              </div>
+              <div className="lb-pts">{(p.points || 0).toLocaleString('fr')}</div>
+              <div style={{fontSize:10,color:'var(--text-dim)'}}>pts</div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+/* ═══════════════════════════ CHAT HOOK (App-level, persistent) ═══════════════════════════ */
+
+function useChatMQTT(displayName) {
+  const [msgs, setMsgs] = useState([]);
+  const [connected, setConnected] = useState(false);
+  const [status, setStatus] = useState('Connexion…');
+  const clientRef = useRef(null);
+  const nameRef = useRef(displayName);
+  const TOPIC = 'arcade-hub/chat/v3';
+
+  // keep nameRef in sync without reconnecting
+  useEffect(() => { nameRef.current = displayName; }, [displayName]);
+
+  // connect ONCE on mount, never reconnect on name change
+  useEffect(() => {
+    let client;
+    try {
+      client = mqtt.connect('wss://broker.hivemq.com:8884/mqtt', {
+        clientId: 'arcade_' + Math.random().toString(36).slice(2, 10),
+        clean: true,
+        connectTimeout: 10000,
+        reconnectPeriod: 4000,
+        keepalive: 30,
+      });
+      client.on('connect', () => {
+        setConnected(true); setStatus('En ligne');
+        client.subscribe(TOPIC, { qos: 0 });
+        client.publish(TOPIC, JSON.stringify({ type:'system', text:`${nameRef.current} a rejoint le chat`, ts: Date.now() }));
+      });
+      client.on('message', (_, msg) => {
+        try { const m = JSON.parse(msg.toString()); setMsgs(p => [...p.slice(-199), m]); } catch {}
+      });
+      client.on('reconnect', () => setStatus('Reconnexion…'));
+      client.on('error',   () => setStatus('Erreur'));
+      client.on('offline', () => { setConnected(false); setStatus('Hors ligne'); });
+      clientRef.current = client;
+    } catch { setStatus('Indisponible'); }
+    return () => {
+      if (clientRef.current?.connected) {
+        clientRef.current.publish(TOPIC, JSON.stringify({ type:'system', text:`${nameRef.current} a quitté le chat`, ts: Date.now() }));
+        clientRef.current.end(true);
+      }
+    };
+  }, []); // ← empty deps: connect once, persist for app lifetime
+
+  const sendMessage = useCallback((text) => {
+    if (!text.trim() || !clientRef.current?.connected) return false;
+    clientRef.current.publish(TOPIC, JSON.stringify({ type:'msg', user: nameRef.current, text: text.trim(), ts: Date.now() }));
+    return true;
+  }, []);
+
+  return { msgs, connected, status, sendMessage };
+}
+
+/* ═══════════════════════════ CHAT PANEL (presentational) ═══════════════════════════ */
+
+function ChatPanel({ msgs, connected, status, sendMessage, isOpen, isMobile }) {
+  const [input, setInput] = useState('');
+  const endRef = useRef(null);
+
+  // keep scroll pinned to bottom
+  useEffect(() => {
+    if (endRef.current) endRef.current.scrollTop = endRef.current.scrollHeight;
+  }, [msgs]);
+
+  const send = () => {
+    if (sendMessage(input)) setInput('');
+  };
+
+  const fmt = (ts) => new Date(ts).toLocaleTimeString('fr', { hour:'2-digit', minute:'2-digit' });
+
+  return (
+    <div className={`chat-panel${isMobile ? (isOpen ? ' open' : '') : ''}`}>
+      <div className="chat-header">
+        <div className="chat-title">Chat Global</div>
+        <span style={{fontSize:9,color:'var(--text-dim)',marginLeft:'auto',marginRight:6}}>{status}</span>
+        <div className={`chat-dot${connected?' on':''}`} />
+      </div>
+      <div className="chat-messages" ref={endRef}>
+        {msgs.length === 0 && (
+          <div style={{color:'var(--text-dim)',fontSize:10,textAlign:'center',marginTop:20,lineHeight:1.8}}>
+            Aucun message.<br/>Soyez le premier !
+          </div>
+        )}
+        {msgs.map((m, i) =>
+          m.type==='system'
+            ? <div key={i} className="chat-msg system">— {m.text} —</div>
+            : (
+              <div key={i} className="chat-msg">
+                <span className="chat-msg-user">{m.user}</span>
+                <span className="chat-msg-time">{fmt(m.ts)}</span>
+                <div className="chat-msg-text">{m.text}</div>
+              </div>
+            )
+        )}
+      </div>
+      <div className="chat-input-wrap">
+        <input
+          className="chat-input"
+          value={input}
+          onChange={e=>setInput(e.target.value)}
+          onKeyDown={e=>e.key==='Enter'&&send()}
+          placeholder={connected ? "Message…" : "En attente de connexion…"}
+          maxLength={200}
+        />
+        <button className="chat-send" onClick={send} disabled={!connected}>↑</button>
+      </div>
+    </div>
+  );
+}
+
+/* ═══════════════════════════ APP ═══════════════════════════ */
+
+function useIsMobile() {
+  const [w, setW] = useState(window.innerWidth);
+  useEffect(() => {
+    const h = () => setW(window.innerWidth);
+    window.addEventListener('resize', h);
+    return () => window.removeEventListener('resize', h);
+  }, []);
+  return { isMobile: w <= 680, isTablet: w > 680 && w <= 1080 };
+}
+
+function App() {
+  const [profile, setProfile] = useState(() => getProfile());
+  const [showModal, setShowModal] = useState(() => !getProfile());
+  const [editProfile, setEditProfile] = useState(false);
+  const [game, setGame] = useState('minesweeper');
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [chatOpen, setChatOpen] = useState(false);
+  const { isMobile } = useIsMobile();
+
+  // Guest name persists for app lifetime
+  const guestName = useRef('Invité_' + Math.floor(Math.random()*9000+1000));
+  const displayName = profile?.name || guestName.current;
+  const chat = useChatMQTT(displayName);
+  const rankForLB = profile ? getRank(profile.points||0) : null;
+  const leaderboard = useLeaderboard(displayName, profile?.points || 0, rankForLB);
+
+  // theme
+  const [theme, setTheme] = useState(() => localStorage.getItem('arcade_theme') || 'dark');
+  useEffect(() => {
+    document.body.setAttribute('data-theme', theme);
+    localStorage.setItem('arcade_theme', theme);
+  }, [theme]);
+
+  const handleSaveProfile = (name) => {
+    const existing = profile;
+    const newProfile = {
+      name,
+      points: existing?.points || 0,
+      wins: existing?.wins || { minesweeper:0, sudoku:0 },
+    };
+    setProfile(newProfile);
+    saveProfile(newProfile);
+    setShowModal(false);
+    setEditProfile(false);
+  };
+
+  const addPoints = useCallback((pts) => {
+    setProfile(p => {
+      if (!p) return p;
+      const updated = {...p, points: (p.points||0) + pts};
+      saveProfile(updated);
+      return updated;
+    });
+  }, []);
+
+  const rank = rankForLB;
+
+  const GAMES = [
+    { id:'minesweeper', label:'Démineur',    icon:'💣' },
+    { id:'sudoku',      label:'Sudoku',      icon:'🔢' },
+    { id:'bombparty',   label:'Bomb Party',  icon:'💥' },
+    { id:'leaderboard', label:'Classement',  icon:'🏆' },
+  ];
+
+  return (
+    <>
+      {(showModal || editProfile) && (
+        <ProfileModal
+          onSave={handleSaveProfile}
+          initial={editProfile ? profile?.name : null}
+        />
+      )}
+
+      {/* Topbar */}
+      <div className="topbar">
+        <div className="topbar-logo">
+          <svg width="22" height="22" viewBox="0 0 32 32" fill="none" style={{marginRight:8,flexShrink:0}}>
+            <defs>
+              <linearGradient id="lg" x1="0" y1="0" x2="1" y2="1">
+                <stop offset="0%" stopColor="#ffb627"/>
+                <stop offset="100%" stopColor="#f0a500"/>
+              </linearGradient>
+            </defs>
+            <path d="M16 2 L28 9 L28 23 L16 30 L4 23 L4 9 Z" stroke="url(#lg)" strokeWidth="2" fill="rgba(240,165,0,0.08)"/>
+            <path d="M16 9 L22 12.5 L22 19.5 L16 23 L10 19.5 L10 12.5 Z" fill="url(#lg)"/>
+            <circle cx="16" cy="16" r="2" fill="#0d0f14"/>
+          </svg>
+          <span>ARCADE<span style={{color:'var(--amber)',opacity:0.5,marginLeft:4}}>//</span><span style={{color:'var(--text-dim)',fontWeight:500}}>HUB</span></span>
+        </div>
+        <div className="topbar-sep" />
+        {profile ? (
+          <div className="profile-pill" onClick={()=>setEditProfile(true)}>
+            <div className="profile-avatar">{initials(profile.name)}</div>
+            {!isMobile && <div>
+              <div className="profile-name">{profile.name}</div>
+              <div className="profile-pts">{profile.points||0} pts · {rank?.label}</div>
+            </div>}
+          </div>
+        ) : (
+          <button className="ms-ov-btn" style={{fontSize:10,padding:'6px 14px'}} onClick={()=>setShowModal(true)}>
+            Profil
+          </button>
+        )}
+      </div>
+
+      {/* Mobile backdrop */}
+      {isMobile && (sidebarOpen || chatOpen) && (
+        <div className="drawer-backdrop" onClick={()=>{setSidebarOpen(false);setChatOpen(false);}} />
+      )}
+
+      {/* Layout */}
+      <div className="layout">
+        {/* Sidebar */}
+        <div className={`sidebar${isMobile ? (sidebarOpen?' open':'') : ''}`}>
+          <div className="sidebar-section">
+            <div className="sidebar-title">Jeux</div>
+            {GAMES.map(g=>(
+              <div key={g.id}
+                className={`nav-item${game===g.id?' active':''}`}
+                onClick={()=>{ setGame(g.id); if(isMobile) setSidebarOpen(false); }}
+              >
+                <span className="nav-icon">{g.icon}</span>
+                {g.label}
+              </div>
+            ))}
+          </div>
+
+          {profile && (
+            <div className="profile-card">
+              <div className="pc-rank">{rank?.label}</div>
+              <div className="pc-name">{profile.name}</div>
+              <div className="pc-stat">Points <span>{profile.points||0}</span></div>
+              <div className="pc-stat">Victoires <span>{(profile.wins?.minesweeper||0)+(profile.wins?.sudoku||0)}</span></div>
+              {rank && rank.next && (
+                <>
+                  <div className="pc-stat" style={{marginTop:6,fontSize:9}}>
+                    Vers {RANKS[RANKS.findIndex(r=>r.min===rank.min)+1]?.label}
+                    <span> {rank.next - (profile.points||0)} pts</span>
+                  </div>
+                  <div className="pc-bar-wrap">
+                    <div className="pc-bar" style={{
+                      width: `${Math.min(100,((profile.points||0)-rank.min)/(rank.next-rank.min)*100)}%`
+                    }}/>
+                  </div>
+                </>
+              )}
+              <button className="pc-edit-btn" onClick={()=>{setEditProfile(true);setSidebarOpen(false);}}>Modifier le profil</button>
+              <div className="theme-toggle">
+                <button className={theme==='dark'?'active':''} onClick={()=>setTheme('dark')}>🌙 Sombre</button>
+                <button className={theme==='light'?'active':''} onClick={()=>setTheme('light')}>☀ Clair</button>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Game area */}
+        <div className="game-area">
+          {game === 'minesweeper' && <MinesweeperGame onPoints={addPoints} />}
+          {game === 'sudoku' && <SudokuGame onPoints={addPoints} />}
+          {game === 'bombparty' && <BombPartyGame onPoints={addPoints} />}
+          {game === 'leaderboard' && <LeaderboardView players={leaderboard} currentName={displayName} />}
+        </div>
+
+        {/* Chat */}
+        <ChatPanel {...chat} isOpen={chatOpen} isMobile={isMobile} />
+      </div>
+
+      {/* Bottom nav (mobile only) */}
+      <nav className="bottom-nav">
+        <button className={`bottom-nav-item${sidebarOpen?' active':''}`}
+          onClick={()=>{setSidebarOpen(o=>!o);setChatOpen(false);}}>
+          <span className="bn-icon">☰</span>Menu
+        </button>
+        {GAMES.map(g=>(
+          <button key={g.id} className={`bottom-nav-item${game===g.id&&!sidebarOpen&&!chatOpen?' active':''}`}
+            onClick={()=>{setGame(g.id);setSidebarOpen(false);setChatOpen(false);}}>
+            <span className="bn-icon">{g.icon}</span>{g.label}
+          </button>
+        ))}
+        <button className={`bottom-nav-item${chatOpen?' active':''}`}
+          onClick={()=>{setChatOpen(o=>!o);setSidebarOpen(false);}}>
+          <span className="bn-icon">💬</span>Chat
+        </button>
+      </nav>
+    </>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+</body>
+</html>
