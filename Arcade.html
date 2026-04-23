@@ -2185,9 +2185,9 @@ function App(){
           {game==='admin'&&<AdminPanel chat={chat} leaderboard={leaderboard}/>}
         </div>
 
-      </div>
-        {/* Chat panel — outside layout so not clipped */}
+        {/* Chat panel — inside layout for proper flex positioning on desktop; position:fixed on mobile */}
         <ChatPanel {...chat} isOpen={chatOpen} isMobile={isMobile}/>
+      </div>
 
       {/* Mobile: Chat FAB */}
       {isMobile&&(
