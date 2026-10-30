@@ -1,3 +1,11 @@
+# HGames
+
+[Play on GitHub Pages](https://gamenotcreator.github.io/hgames/) · [Vercel demo](https://hgames.vercel.app/)
+
+The GitHub Pages entry point opens the existing `Arcade.html` prototype. The Vercel configuration and game files are unchanged by this hosting setup. Administration is disabled in the public demonstration.
+
+---
+
 # CODING AGENTS: READ THIS FIRST
 
 This is a **handoff bundle** from Claude Design (claude.ai/design).
